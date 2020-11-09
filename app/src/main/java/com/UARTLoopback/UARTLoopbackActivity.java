@@ -42,14 +42,6 @@ public class UARTLoopbackActivity extends Activity {
 	public FT311UARTInterface uartInterface;
 	/* graphical objects */
 	EditText readText;
-	EditText writeText;
-	Spinner baudSpinner;;
-	Spinner stopSpinner;
-	Spinner dataSpinner;
-	Spinner paritySpinner;
-	Spinner flowSpinner;
-
-	Button writeButton, configButton;
 
 	/* local variables */
 	byte[] writeBuffer;
