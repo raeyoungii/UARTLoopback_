@@ -4,9 +4,6 @@
     android:layout_width="fill_parent"
     android:layout_height="fill_parent"
     >
-    
-    
-
 
 <!-- Read byte -->
 	<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -19,7 +16,6 @@
     android:tag="Read block"
     android:layout_weight="1"
     >
-
 	 			
 	  <TextView android:text = "Read Bytes" 
 	 			android:textStyle="bold"
