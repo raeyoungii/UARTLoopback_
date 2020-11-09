@@ -40,6 +40,7 @@ public class UARTLoopbackActivity extends Activity {
 
 	/* declare a FT311 UART interface variable */
 	public FT311UARTInterface uartInterface;
+
 	/* graphical objects */
 	EditText readText;
 
