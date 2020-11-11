@@ -308,17 +308,17 @@ public class UARTLoopbackActivity extends Activity {
 
         // TODO: 데이터 파싱 후 DB에 삽입
         /* check cmd */
-        String cmd = tmpArr[6];
+        String cmd = tmpArr[5];
 
         if (true == cmd.equals("30")) {
-            Gateway = Integer.parseInt(tmpArr[13] + tmpArr[14], 16);
-            Temperature = Integer.parseInt(tmpArr[27] + tmpArr[28], 16);
-            Humidity = Integer.parseInt(tmpArr[41] + tmpArr[42], 16);
-            Bio = Integer.parseInt(tmpArr[55] + tmpArr[56], 16);
-            P_btn = Integer.parseInt(tmpArr[69] + tmpArr[70], 16);
-            PIR = Integer.parseInt(tmpArr[83] + tmpArr[84], 16);
-            Door = Integer.parseInt(tmpArr[97] + tmpArr[98], 16);
-            Fire = Integer.parseInt(tmpArr[111] + tmpArr[112], 16);
+            Gateway = Integer.parseInt(tmpArr[12] + tmpArr[13], 16);
+            Temperature = Integer.parseInt(tmpArr[26] + tmpArr[27], 16);
+            Humidity = Integer.parseInt(tmpArr[40] + tmpArr[41], 16);
+            Bio = Integer.parseInt(tmpArr[54] + tmpArr[55], 16);
+            P_btn = Integer.parseInt(tmpArr[68] + tmpArr[69], 16);
+            PIR = Integer.parseInt(tmpArr[82] + tmpArr[83], 16);
+            Door = Integer.parseInt(tmpArr[96] + tmpArr[97], 16);
+            Fire = Integer.parseInt(tmpArr[110] + tmpArr[111], 16);
 
             String sensorData = "\nGateway: " + Gateway +
                     "\nTemperature: " + Temperature +
@@ -331,7 +331,7 @@ public class UARTLoopbackActivity extends Activity {
 
             tmpSB2.append(sensorData);
         } else {
-            cmd = cmd.concat(tmpArr[7] + tmpArr[8]);
+            cmd = cmd.concat(tmpArr[6] + tmpArr[7]);
 
             if (true == cmd.equals("611020")) {
                 Cancel = true;
