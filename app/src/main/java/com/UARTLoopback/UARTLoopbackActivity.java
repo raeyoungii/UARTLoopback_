@@ -7,13 +7,21 @@ import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.provider.Telephony;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.WindowManager;
 import android.widget.EditText;
+import android.widget.Toast;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
+
+import io.sentry.Sentry;
+import okhttp3.ResponseBody;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 public class UARTLoopbackActivity extends Activity {
 
@@ -61,7 +69,8 @@ public class UARTLoopbackActivity extends Activity {
     public String act_string;
 
     /* sensor Data */
-    int gateway;
+    String gateway;
+    String current_time;
     int temperature;
     int humidity;
     int bio;
@@ -282,108 +291,136 @@ public class UARTLoopbackActivity extends Activity {
 
         char[] ch = readSB.toString().toCharArray();
         String temp;
-        StringBuilder tmpSB = new StringBuilder();
+
         String[] tmpArr = new String[ch.length];
 
         for (int i = 0; i < ch.length; i++) {
             temp = String.format("%02x", (int) ch[i]);
 
             if (temp.length() == 4) {
-                tmpSB.append(temp.substring(2, 4));
                 tmpArr[i] = temp.substring(2, 4);
             } else {
-                tmpSB.append(temp);
                 tmpArr[i] = temp;
-            }
-
-            if (i + 1 < ch.length) {
-                tmpSB.append(" ");
             }
         }
 
         /* current time */
-        StringBuilder tmpSB2 = new StringBuilder();
+        StringBuilder tmpSB = new StringBuilder();
         long now = System.currentTimeMillis();
         Date date = new Date(now);
         SimpleDateFormat mFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
-        String formatDate = mFormat.format(date) + "\n\n";
+        String formatDate = mFormat.format(date);
 
-        tmpSB2.append(formatDate);
-        tmpSB2.append(tmpSB);
+        try {
+            /* check cmd */
+            String cmd = tmpArr[5];
 
-        // TODO: 데이터 파싱 후 DB에 삽입
-        /* check cmd */
-        String cmd = tmpArr[5];
+            /* Periodic Report */
+            if (true == cmd.equals("30")) {
+                if (tmpArr.length == 124) {
+                    gateway = "";
+                    for (int i=14; i < 22; i++) {
+                        gateway = gateway.concat(tmpArr[i]);
+                    }
+                    current_time = formatDate;
+                    temperature = Integer.parseInt(tmpArr[26] + tmpArr[27], 16);
+                    humidity = Integer.parseInt(tmpArr[40] + tmpArr[41], 16);
+                    bio = Integer.parseInt(tmpArr[54] + tmpArr[55], 16);
+                    p_btn = Integer.parseInt(tmpArr[68] + tmpArr[69], 16);
+                    pir = Integer.parseInt(tmpArr[82] + tmpArr[83], 16);
+                    door = Integer.parseInt(tmpArr[96] + tmpArr[97], 16);
+                    fire = Integer.parseInt(tmpArr[110] + tmpArr[111], 16);
 
-        /* Periodic Report */
-        if (true == cmd.equals("30")) {
-            gateway = Integer.parseInt(tmpArr[12] + tmpArr[13], 16);
-            temperature = Integer.parseInt(tmpArr[26] + tmpArr[27], 16);
-            humidity = Integer.parseInt(tmpArr[40] + tmpArr[41], 16);
-            bio = Integer.parseInt(tmpArr[54] + tmpArr[55], 16);
-            p_btn = Integer.parseInt(tmpArr[68] + tmpArr[69], 16);
-            pir = Integer.parseInt(tmpArr[82] + tmpArr[83], 16);
-            door = Integer.parseInt(tmpArr[96] + tmpArr[97], 16);
-            fire = Integer.parseInt(tmpArr[110] + tmpArr[111], 16);
+                    String sensorData = "Current_time: " + current_time +
+                            "\nGateway: " + gateway +
+                            "\nTemperature: " + temperature +
+                            "\t  Humidity: " + humidity +
+                            "\t  Bio: " + bio +
+                            "\nP_btn: " + p_btn +
+                            "\t  PIR: " + pir +
+                            "\t  Door: " + door +
+                            "\t  Fire: " + fire;
 
-            String sensorData = "\n\nGateway: " + gateway +
-                    "\nTemperature: " + temperature +
-                    "\t  Humidity: " + humidity +
-                    "\t  Bio: " + bio +
-                    "\nP_btn: " + p_btn +
-                    "\t  PIR: " + pir +
-                    "\t  Door: " + door +
-                    "\t  Fire: " + fire;
-
-            tmpSB2.append(sensorData);
-        } else {
-            cmd = cmd.concat(tmpArr[6] + tmpArr[7]);
-            /* Key Event */
-            if (true == cmd.equals("601010")) {
-                btn_119 = true;
-                String sensorData = "\n\n119";
-                tmpSB2.append(sensorData);
-            } else if (true == cmd.equals("601050")) {
-                btn_call = true;
-                String sensorData = "\n\nCall";
-                tmpSB2.append(sensorData);
-            } else if (true == cmd.equals("611020")) {
-                btn_cancel = true;
-                String sensorData = "\n\nCancel";
-                tmpSB2.append(sensorData);
-            } else if (true == cmd.equals("601030")) {
-                btn_carer = true;
-                String sensorData = "\n\nCarer";
-                tmpSB2.append(sensorData);
+                    tmpSB.append(sensorData);
+                    insertData();
+                }
+            } else {
+                cmd = cmd.concat(tmpArr[6] + tmpArr[7]);
+                /* Key Event */
+                if (true == cmd.equals("601010")) {
+                    btn_119 = true;
+                    String sensorData = "\n\n119";
+                    tmpSB.append(sensorData);
+                } else if (true == cmd.equals("601050")) {
+                    btn_call = true;
+                    String sensorData = "\n\nCall";
+                    tmpSB.append(sensorData);
+                } else if (true == cmd.equals("611020")) {
+                    btn_cancel = true;
+                    String sensorData = "\n\nCancel";
+                    tmpSB.append(sensorData);
+                } else if (true == cmd.equals("601030")) {
+                    btn_carer = true;
+                    String sensorData = "\n\nCarer";
+                    tmpSB.append(sensorData);
+                }
+                /* Zigbee Sensor Event */
+                else if (true == cmd.equals("674402")) {
+                    btn_carer = true;
+                    String sensorData = "\n\nPIR";
+                    tmpSB.append(sensorData);
+                } else if (true == cmd.equals("674a01")) {
+                    btn_carer = true;
+                    String sensorData = "\n\nDoor";
+                    tmpSB.append(sensorData);
+                } else if (true == cmd.equals("601102")) {
+                    btn_carer = true;
+                    String sensorData = "\n\nRF_btn - Emergency";
+                    tmpSB.append(sensorData);
+                } else if (true == cmd.equals("611102")) {
+                    btn_carer = true;
+                    String sensorData = "\n\nRF_btn - Cancel";
+                    tmpSB.append(sensorData);
+                } else if (true == cmd.equals("604702")) {
+                    btn_carer = true;
+                    String sensorData = "\n\nFire";
+                    tmpSB.append(sensorData);
+                }
             }
-            /* Zigbee Sensor Event */
-            else if (true == cmd.equals("674402")) {
-                btn_carer = true;
-                String sensorData = "\n\nPIR";
-                tmpSB2.append(sensorData);
-            } else if (true == cmd.equals("674a01")) {
-                btn_carer = true;
-                String sensorData = "\n\nDoor";
-                tmpSB2.append(sensorData);
-            } else if (true == cmd.equals("601102")) {
-                btn_carer = true;
-                String sensorData = "\n\nRF_btn - Emergency";
-                tmpSB2.append(sensorData);
-            } else if (true == cmd.equals("611102")) {
-                btn_carer = true;
-                String sensorData = "\n\nRF_btn - Cancel";
-                tmpSB2.append(sensorData);
-            } else if (true == cmd.equals("604702")) {
-                btn_carer = true;
-                String sensorData = "\n\nFire";
-                tmpSB2.append(sensorData);
-            }
+
+            readText.setText(tmpSB);
+        } catch (Exception e) {
+            Sentry.captureException(e);
         }
-
-        readText.setText(tmpSB2);
 
         readSB.delete(0, readSB.length());
         tmpSB.delete(0, tmpSB.length());
-        tmpSB2.delete(0, tmpSB.length());
+    }
+
+    private void insertData() {
+        String etTime=current_time;
+        String etMac=gateway;
+        String etTemp=Integer.toString(temperature);
+        String etHum=Integer.toString(humidity);
+        String etBio=Integer.toString(bio);
+        String etPir=Integer.toString(pir);
+        String etDoor=Integer.toString(door);
+        String etFire=Integer.toString(fire);
+        String etP_btn=Integer.toString(p_btn);
+
+
+
+        Call<ResponseBody> call=MyClient.getInstance().getMyApi().insertdata(etTime, etMac, etTemp, etHum, etBio, etPir, etDoor, etFire, etP_btn);
+        call.enqueue(new Callback<ResponseBody>() {
+            @Override
+            public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
+
+            }
+
+            @Override
+            public void onFailure(Call<ResponseBody> call, Throwable t) {
+                Sentry.captureException(t);
+            }
+        });
     }
 }

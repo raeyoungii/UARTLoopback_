@@ -12,7 +12,7 @@
 	android:layout_marginTop="5dp"
 	android:layout_marginBottom="5dp"
 	android:layout_margin="5dip"    
-	android:background="#505050"
+	android:background="#dddddd"
     android:tag="Read block"
     android:layout_weight="1"
     >
@@ -32,7 +32,7 @@
 	 	    android:layout_height="fill_parent"
 	 	    android:layout_margin="10dp"
 	 	    android:layout_weight="1"
-	 	    android:background="#708070"
+	 	    android:background="#ffffff"
 	 	    android:focusableInTouchMode="false"
 	 	    android:gravity="left|center_vertical" />
 

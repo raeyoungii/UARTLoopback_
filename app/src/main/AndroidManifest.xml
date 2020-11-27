@@ -4,31 +4,28 @@
     android:versionCode="1"
     android:versionName="1.0">
     <uses-sdk android:minSdkVersion="12" />
-
     <uses-feature android:name="android.hardware.usb.accessory"/>
-
-    <application android:icon="@drawable/icon" android:label="@string/app_name"	>
-        <activity android:name=".UARTLoopbackActivity"
-
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <application
+        android:icon="@drawable/icon"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:label="@string/app_name"	>
+        <activity
+            android:name=".UARTLoopbackActivity"
             android:label="@string/app_name"
             android:screenOrientation="landscape">
-
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-
-
             <intent-filter>
                 <action android:name="android.hardware.usb.action.USB_ACCESSORY_ATTACHED"/>
             </intent-filter>
-
             <meta-data
                 android:name="android.hardware.usb.action.USB_ACCESSORY_ATTACHED"
                 android:resource="@xml/accessory_filter">
             </meta-data>
-
         </activity>
-
+        <meta-data android:name="io.sentry.dsn" android:value="https://f86eec5f7b79494c9be2bfbf11872b27@o477176.ingest.sentry.io/5517695" />
     </application>
 </manifest>
