@@ -26,6 +26,6 @@
                 android:resource="@xml/accessory_filter">
             </meta-data>
         </activity>
-        <meta-data android:name="io.sentry.dsn" android:value="https://f86eec5f7b79494c9be2bfbf11872b27@o477176.ingest.sentry.io/5517695" />
+        <meta-data android:name="io.sentry.dsn" android:value="@string/sentry_dsn" />
     </application>
 </manifest>

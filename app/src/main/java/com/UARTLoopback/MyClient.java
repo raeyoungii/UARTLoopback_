@@ -4,9 +4,9 @@ import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 
 public class MyClient {
-    private static final String BASE_URL="http://210.94.185.39:10027/healthcare/";
+    private static final String BASE_URL="http://210.94.185.39:10027";
     private static MyClient myClient;
-    private Retrofit retrofit;
+    private final Retrofit retrofit;
 
     private MyClient(){
         retrofit=new Retrofit.Builder().baseUrl(BASE_URL).addConverterFactory(GsonConverterFactory.create()).build();
