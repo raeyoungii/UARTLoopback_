@@ -8,6 +8,7 @@ import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.WindowManager;
@@ -19,6 +20,7 @@ import org.json.JSONObject;
 
 import java.io.IOException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 
 import io.sentry.Sentry;
@@ -38,8 +40,6 @@ public class UARTLoopbackActivity extends Activity {
 
     final int FORMAT_HEX = 0;
 
-    int inputFormat = FORMAT_HEX;
-
     StringBuffer readSB = new StringBuffer();
 
     /* thread to read the data */
@@ -57,11 +57,7 @@ public class UARTLoopbackActivity extends Activity {
     char[] readBufferToChar;
     int[] actualNumBytes;
 
-    int numBytes;
-    byte count;
     byte status;
-    byte writeIndex = 0;
-    byte readIndex = 0;
 
     int baudRate; /* baud rate */
     byte stopBit; /* 1:1stop bits, 2:2 stop bits */
@@ -71,7 +67,6 @@ public class UARTLoopbackActivity extends Activity {
     public Context global_context;
     public boolean bConfiged = false;
     public SharedPreferences sharePrefSettings;
-    Drawable originalDrawable;
     public String act_string;
 
     /* sensor Data */
@@ -88,14 +83,29 @@ public class UARTLoopbackActivity extends Activity {
     boolean btn_119 = false;
     boolean btn_call = false;
     boolean btn_carer = false;
-    boolean btn_cancel = false;
 
+    /* Handler */
+    InHouseHandler inHouseHandler;
     boolean inHouse = false;
-    String emergencyResult = "Cancel";
-    boolean urgentFlag = false;
 
-    inHouse_thread inHouseThread;
-    emergencyDecision_thread emergencyDecisionThread;
+    DecisionHandler decisionHandler;
+    boolean decisionTimer = false;
+
+    private static final int MESSAGE_IN_HOUSE_START = 100;
+    private static final int MESSAGE_IN_HOUSE_REPEAT = 101;
+    private static final int MESSAGE_IN_HOUSE_STOP = 102;
+
+    private static final int MESSAGE_DECISION_START = 100;
+    private static final int MESSAGE_DECISION_REPEAT = 101;
+    private static final int MESSAGE_DECISION_STOP = 102;
+
+    ArrayList<Integer> recentTemp = new ArrayList<>(6);
+    ArrayList<Integer> recentFire = new ArrayList<>(6);
+    ArrayList<Integer> recentBio = new ArrayList<>(6);
+
+    TemperatureThread temperatureThread;
+    FireThread fireThread;
+    BioThread bioThread;
 
     /**
      * Called when the activity is first created.
@@ -132,9 +142,6 @@ public class UARTLoopbackActivity extends Activity {
         /* flow control */
         flowControl = 0;
 
-        inHouseThread = new inHouse_thread();
-        emergencyDecisionThread = new emergencyDecision_thread();
-
         act_string = getIntent().getAction();
         if (-1 != act_string.indexOf("android.intent.action.MAIN")) {
             restorePreference();
@@ -145,6 +152,17 @@ public class UARTLoopbackActivity extends Activity {
         uartInterface = new FT311UARTInterface(this, sharePrefSettings);
 
         getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
+
+        temperatureThread = new TemperatureThread();
+        fireThread = new FireThread();
+        bioThread = new BioThread();
+
+        temperatureThread.start();
+        fireThread.start();
+        bioThread.start();
+
+        inHouseHandler = new InHouseHandler();
+        decisionHandler = new DecisionHandler();
 
         handlerThread = new handler_thread(handler);
         handlerThread.start();
@@ -268,34 +286,146 @@ public class UARTLoopbackActivity extends Activity {
         }
     }
 
-    private class inHouse_thread extends Thread {
-        public void run() {
-            try {
-                Thread.sleep(120000);
-                inHouse = false;
-            } catch (InterruptedException e) {
-                inHouse = true;
+    private class InHouseHandler extends Handler {
+        int cnt;
+
+        @Override
+        public void handleMessage(Message msg) {
+            switch(msg.what) {
+                case MESSAGE_IN_HOUSE_START:
+                    // 타이머 초기화 기능
+                    cnt = 0;
+                    this.removeMessages(MESSAGE_IN_HOUSE_REPEAT);
+                    this.sendEmptyMessage(MESSAGE_IN_HOUSE_REPEAT);
+                    break;
+                case MESSAGE_IN_HOUSE_REPEAT:
+                    // 타이머 반복 기능
+                    if (cnt < 120) {
+                        this.sendEmptyMessageDelayed(MESSAGE_IN_HOUSE_REPEAT, 1000);
+                    } else {
+                        inHouse = false;
+                        inHouseHandler.sendEmptyMessage(MESSAGE_IN_HOUSE_STOP);
+                    }
+                    break;
+                case MESSAGE_IN_HOUSE_STOP:
+                    // 타이머 종료 기능
+                    this.removeMessages(MESSAGE_IN_HOUSE_REPEAT);
+                    break;
             }
         }
     }
 
-    private class emergencyDecision_thread extends Thread {
-        public void run() {
-            try {
-                if (true == urgentFlag) {
-                    Thread.sleep(10000);
-                } else {
-                    Thread.sleep(120000);
-                }
-                emergencyResult = "Confirm";
-            } catch (InterruptedException e) {
-                emergencyResult = "Cancel";
-                myBackground.setBackgroundColor(Color.parseColor("#dddddd"));
+    private class DecisionHandler extends Handler {
+        int cnt;
+
+        @Override
+        public void handleMessage(Message msg) {
+            switch(msg.what) {
+                case MESSAGE_DECISION_START:
+                    // 타이머 초기화 기능
+                    cnt = 0;
+                    decisionTimer = true;
+                    this.removeMessages(MESSAGE_DECISION_REPEAT);
+                    this.sendEmptyMessage(MESSAGE_DECISION_REPEAT);
+                    break;
+                case MESSAGE_DECISION_REPEAT:
+                    // 타이머 반복 기능
+                    if (cnt < 120) {
+                        this.sendEmptyMessageDelayed(MESSAGE_DECISION_REPEAT, 1000);
+                    } else {
+                        emergencyDecision();
+                        inHouseHandler.sendEmptyMessage(MESSAGE_DECISION_STOP);
+                    }
+                    break;
+                case MESSAGE_DECISION_STOP:
+                    // 타이머 종료 기능
+                    decisionTimer = false;
+                    this.removeMessages(MESSAGE_DECISION_REPEAT);
+                    break;
             }
-            urgentFlag = false;
-            emergencyDecision();
         }
     }
+
+    private void startDecision() {
+        if (false == decisionTimer) {
+            decisionHandler.sendEmptyMessage(MESSAGE_DECISION_START);
+        }
+    }
+
+    private void stopDecision() {
+        decisionHandler.sendEmptyMessage(MESSAGE_DECISION_STOP);
+    }
+
+
+    private class TemperatureThread extends Thread {
+        @Override
+        public void run() {
+            while (true) {
+                try {
+                    Thread.sleep(60000);
+                } catch (InterruptedException e) {
+                }
+                if (recentTemp.size() == 6) {
+                    int cnt = 0;
+                        for (int i = 0; i < 6; i++) {
+                            if (recentTemp.get(i) >= 35) {
+                                cnt++;
+                            }
+                        }
+                        if (cnt > 4) {
+                            emergencyPredictAndroid("High Temperature");
+                        }
+                }
+            }
+        }
+    }
+
+    private class FireThread extends Thread {
+        @Override
+        public void run() {
+            while (true) {
+                try {
+                    Thread.sleep(30000);
+                } catch (InterruptedException e) {
+                }
+                if (recentFire.size() == 6) {
+                    int cnt = 0;
+                    for (int i = 0; i < 6; i++) {
+                        if (recentFire.get(i) != 0) {
+                            cnt++;
+                        }
+                    }
+                    if (cnt > 4) {
+                        emergencyPredictAndroid("Fire for 1 min");
+                    }
+                }
+            }
+        }
+    }
+
+    private class BioThread extends Thread {
+        @Override
+        public void run() {
+            while (true) {
+                try {
+                    Thread.sleep(60000);
+                } catch (InterruptedException e) {
+                }
+                if (recentBio.size() == 6) {
+                    int cnt = 0;
+                    for (int i = 0; i < 6; i++) {
+                        if (recentBio.get(i) >= 100) {
+                            cnt++;
+                        }
+                    }
+                    if (cnt > 4) {
+                        emergencyPredictAndroid("High Heart Rate");
+                    }
+                }
+            }
+        }
+    }
+
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -356,11 +486,11 @@ public class UARTLoopbackActivity extends Activity {
 
         try {
             /* Periodic Report */
-            if (tmpArr.length == 124 && true == tmpArr[0].equals("33") && true == tmpArr[tmpArr.length - 1].equals("55")) {
+            if (tmpArr.length == 124 && tmpArr[0].equals("33") && tmpArr[tmpArr.length - 1].equals("55")) {
                 /* check s_len, s_cmd */
                 String s_len = tmpArr[1] + tmpArr[2];
                 String s_cmd = tmpArr[5];
-                if (true == s_len.equals("007a") && true == s_cmd.equals("30")) {
+                if (s_len.equals("007a") && s_cmd.equals("30")) {
                     gateway = "";
                     for (int i = 14; i < 22; i++) {
                         gateway = gateway.concat(tmpArr[i]);
@@ -371,27 +501,13 @@ public class UARTLoopbackActivity extends Activity {
                         String s_id = tmpArr[24 + i * 14];
                         int s_data = Integer.parseInt(tmpArr[26 + i * 14] + tmpArr[27 + i * 14], 16);
                         switch (s_id) {
-                            case "40":
-                                temperature = s_data;
-                                break;
-                            case "41":
-                                humidity = s_data;
-                                break;
-                            case "42":
-                                bio = s_data;
-                                break;
-                            case "44":
-                                pir = s_data;
-                                break;
-                            case "4a":
-                                door = s_data;
-                                break;
-                            case "11":
-                                p_btn = s_data;
-                                break;
-                            case "47":
-                                fire = s_data;
-                                break;
+                            case "40": temperature = s_data; break;
+                            case "41": humidity = s_data; break;
+                            case "42": bio = s_data; break;
+                            case "44": pir = s_data; break;
+                            case "4a": door = s_data; break;
+                            case "11": p_btn = s_data; break;
+                            case "47": fire = s_data; break;
                         }
                     }
 
@@ -405,67 +521,75 @@ public class UARTLoopbackActivity extends Activity {
                             "\t  P_btn: " + p_btn +
                             "\t  Fire: " + fire;
 
+                    // TODO: emergency for temp, fire, bio
+                    if (recentTemp.size() > 6) {
+                        recentTemp.remove(0);
+                    }
+                    recentTemp.add(temperature);
+
+                    if (recentFire.size() > 6) {
+                        recentFire.remove(0);
+                    }
+                    recentFire .add(bio);
+
+                    if (recentBio.size() > 6) {
+                        recentBio.remove(0);
+                    }
+                    recentBio.add(bio);
+
                     tmpSB.append(sensorData);
                     emergencyPredictServer();
                 }
-            } else if (tmpArr.length <= 12 && true == tmpArr[0].equals("33") && true == tmpArr[tmpArr.length - 1].equals("55")) {
+            } else if (tmpArr.length >= 10 && tmpArr.length <= 12 && tmpArr[0].equals("33") && tmpArr[tmpArr.length - 1].equals("55")) {
                 /* check s_len, s_cmd */
                 String s_len = tmpArr[1] + tmpArr[2];
                 String s_cmd = tmpArr[5] + tmpArr[6] + tmpArr[7];
                 /* Key Event */
-                if (true == s_len.equals("0008") && true == s_cmd.equals("601010")) {
+                if (s_len.equals("0008") && s_cmd.equals("601010")) {
                     // 119 통화 연결
-                    btn_119 = true;
-                    emergencyPredictAndroid();
-                    urgentFlag = true;
-                    emergencyDecisionThread.start();
+                    emergencyPredictAndroid("119");
                     String sensorData = "\n\n119";
                     tmpSB.append(sensorData);
-                } else if (true == s_len.equals("0008") && true == s_cmd.equals("601050")) {
+                } else if (s_len.equals("0008") && s_cmd.equals("601050")) {
                     // 보호자 통화 연결
-                    btn_call = true;
                     String sensorData = "\n\nCall";
                     tmpSB.append(sensorData);
-                } else if (true == s_len.equals("0008") && true == s_cmd.equals("611020")) {
+                } else if (s_len.equals("0008") && s_cmd.equals("611020")) {
                     // 취소 버튼
-                    emergencyDecisionThread.interrupt();
+                    stopDecision();
                     String sensorData = "\n\nCancel";
                     tmpSB.append(sensorData);
-                } else if (true == s_len.equals("0008") && true == s_cmd.equals("601030")) {
+                } else if (s_len.equals("0008") && s_cmd.equals("601030")) {
                     // 생활복지사 통화 연결
-                    btn_carer = true;
                     String sensorData = "\n\nCarer";
                     tmpSB.append(sensorData);
                 }
                 /* Zigbee Sensor Event */
-                else if (true == s_len.equals("000a") && true == s_cmd.equals("674402")) {
+                else if (s_len.equals("000a") && s_cmd.equals("674402")) {
                     // PIR
-                    inHouseThread.start();
+                    inHouse = true;
+                    inHouseHandler.sendEmptyMessage(MESSAGE_IN_HOUSE_STOP);
                     String sensorData = "\n\nPIR";
                     tmpSB.append(sensorData);
-                } else if (true == s_len.equals("000a") && true == s_cmd.equals("674a01")) {
+                } else if (s_len.equals("000a") && s_cmd.equals("674a01")) {
                     // Door
-                    inHouseThread.interrupt();
+                    inHouseHandler.sendEmptyMessage(MESSAGE_IN_HOUSE_START);
                     String sensorData = "\n\nDoor";
                     tmpSB.append(sensorData);
-                } else if (true == s_len.equals("0008") && true == s_cmd.equals("601102")) {
+                } else if (s_len.equals("0008") && s_cmd.equals("601102")) {
                     // RF_btn - Emergency
-                    emergencyPredictAndroid();
-                    urgentFlag = true;
-                    emergencyDecisionThread.start();
+                    emergencyPredictAndroid("RF_btn - Emergency");
+                    startDecision();
                     String sensorData = "\n\nRF_btn - Emergency";
                     tmpSB.append(sensorData);
-                } else if (true == s_len.equals("0008") && true == s_cmd.equals("611102")) {
+                } else if (s_len.equals("0008") && s_cmd.equals("611102")) {
                     // RF_btn - Cancel
-
-                    emergencyDecisionThread.interrupt();
+                    stopDecision();
                     String sensorData = "\n\nRF_btn - Cancel";
                     tmpSB.append(sensorData);
-                } else if (true == s_len.equals("0008") && true == s_cmd.equals("604702")) {
+                } else if (s_len.equals("0008") && s_cmd.equals("604702")) {
                     // Fire
-                    emergencyPredictAndroid();
-                    urgentFlag = true;
-                    emergencyDecisionThread.start();
+                    emergencyPredictAndroid("Fire");
                     String sensorData = "\n\nFire";
                     tmpSB.append(sensorData);
                 }
@@ -500,10 +624,11 @@ public class UARTLoopbackActivity extends Activity {
             public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
                 try {
                     JSONObject jsonObject = new JSONObject(response.body().string());
-                    if (jsonObject.getString("result").equals("Emergency")) {
+                    if (!jsonObject.getString("result").equals("Normal")) {
                         // 배경 빨간색으로 변경, 결정 쓰레드 2분
+                        jsonObject.getString("result");
                         myBackground.setBackgroundColor(Color.RED);
-                        emergencyDecisionThread.start();
+                        startDecision();
                     }
                 } catch (JSONException e) {
                     Sentry.captureException(e);
@@ -519,16 +644,16 @@ public class UARTLoopbackActivity extends Activity {
         });
     }
 
-    private void emergencyPredictAndroid() {
+    private void emergencyPredictAndroid(String information) {
         long now = System.currentTimeMillis();
         Date date = new Date(now);
         SimpleDateFormat mFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
 
         String etTime = mFormat.format(date);
         String etMac = gateway;
-        String etUrgent = "Warning";
+        String etDecision = "Emergency_Android: " + information;
 
-        Call<ResponseBody> call = MyClient.getInstance().getMyApi().predictAndroid(etTime, etMac, etUrgent);
+        Call<ResponseBody> call = MyClient.getInstance().getMyApi().predictAndroid(etTime, etMac, etDecision);
         call.enqueue(new Callback<ResponseBody>() {
             @Override
             public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
@@ -548,7 +673,7 @@ public class UARTLoopbackActivity extends Activity {
 
         String etTime = mFormat.format(date);
         String etMac = gateway;
-        String etDecision = emergencyResult;
+        String etDecision = "Emergency_Server";
 
         Call<ResponseBody> call = MyClient.getInstance().getMyApi().decision(etTime, etMac, etDecision);
         call.enqueue(new Callback<ResponseBody>() {
