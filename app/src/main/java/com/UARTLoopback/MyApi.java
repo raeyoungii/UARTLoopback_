@@ -8,7 +8,7 @@ import retrofit2.http.POST;
 
 public interface MyApi {
     @FormUrlEncoded
-    @POST("/api/emergency/predict/server")
+    @POST("api/emergency/predict/server")
     Call<ResponseBody>predictServer(
             @Field("time") String time,
             @Field("mac") String mac,
@@ -22,7 +22,7 @@ public interface MyApi {
     );
 
     @FormUrlEncoded
-    @POST("/api/emergency/predict/android")
+    @POST("api/emergency/predict/android")
     Call<ResponseBody>predictAndroid(
             @Field("time") String time,
             @Field("mac") String mac,
@@ -30,7 +30,7 @@ public interface MyApi {
             );
 
     @FormUrlEncoded
-    @POST("/api/emergency/decision")
+    @POST("api/emergency/decision")
     Call<ResponseBody>decision(
             @Field("time") String time,
             @Field("mac") String mac,

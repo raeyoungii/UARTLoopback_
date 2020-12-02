@@ -2,38 +2,31 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="fill_parent"
     android:layout_height="fill_parent"
-    android:orientation="vertical">
+    android:background="#000000">
 
-    <!-- Read byte -->
-    <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-        android:id="@+id/Background"
-        android:layout_width="fill_parent"
+    <TextView
+        android:id="@+id/day_view2"
+        android:layout_width="match_parent"
         android:layout_height="fill_parent"
-        android:layout_margin="5dip"
-        android:layout_marginTop="5dp"
-        android:layout_marginBottom="5dp"
         android:layout_weight="1"
-        android:background="#dddddd"
-        android:tag="Read block">
+        android:gravity="center"
+        android:textColor="#dddddd"
+        android:text="제 심장소리가 들리시나요?" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_weight="3"
+        android:orientation="vertical">
 
         <TextView
-            android:id="@+id/ReadBytes"
+            android:id="@+id/time_view"
             android:layout_width="fill_parent"
             android:layout_height="fill_parent"
-            android:layout_weight="6"
-            android:gravity="center"
-            android:text="Read Bytes"
-            android:textStyle="bold" />
-
-        <EditText
-            android:id="@+id/ReadValues"
-            android:layout_width="fill_parent"
-            android:layout_height="fill_parent"
-            android:layout_margin="10dp"
             android:layout_weight="1"
-            android:background="#ffffff"
-            android:focusableInTouchMode="false"
-            android:gravity="left|center_vertical" />
+            android:gravity="center"
+            android:text="" />
+
 
     </LinearLayout>
 </LinearLayout>
