@@ -18,22 +18,22 @@ public interface MyApi {
             @Field("pir") String pir,
             @Field("door") String door,
             @Field("fire") String fire,
-            @Field("p_btn") String p_btn
-    );
+            @Field("p_btn") String p_btn,
+            @Field("in_house") String in_house);
 
     @FormUrlEncoded
     @POST("api/emergency/predict/android")
     Call<ResponseBody>predictAndroid(
             @Field("time") String time,
-            @Field("mac") String mac,
-            @Field("result") String result
+            @Field("result") String result,
+            @Field("mac") String mac
             );
 
     @FormUrlEncoded
     @POST("api/emergency/decision")
     Call<ResponseBody>decision(
             @Field("time") String time,
-            @Field("mac") String mac,
-            @Field("result") String result
+            @Field("result") String result,
+            @Field("mac") String mac
     );
 }
