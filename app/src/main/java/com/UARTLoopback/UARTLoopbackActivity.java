@@ -307,13 +307,11 @@ public class UARTLoopbackActivity extends Activity {
         public void handleMessage(Message msg) {
             switch (msg.what) {
                 case MESSAGE_IN_HOUSE_START:
-                    // 타이머 초기화 기능
                     cnt = 0;
                     this.removeMessages(MESSAGE_IN_HOUSE_REPEAT);
                     this.sendEmptyMessage(MESSAGE_IN_HOUSE_REPEAT);
                     break;
                 case MESSAGE_IN_HOUSE_REPEAT:
-                    // 타이머 반복 기능
                     if (cnt < 600) {
                         cnt++;
                         this.sendEmptyMessageDelayed(MESSAGE_IN_HOUSE_REPEAT, 1000);
@@ -323,7 +321,6 @@ public class UARTLoopbackActivity extends Activity {
                     }
                     break;
                 case MESSAGE_IN_HOUSE_STOP:
-                    // 타이머 종료 기능
                     this.removeMessages(MESSAGE_IN_HOUSE_REPEAT);
                     break;
             }
@@ -338,14 +335,12 @@ public class UARTLoopbackActivity extends Activity {
         public void handleMessage(Message msg) {
             switch (msg.what) {
                 case MESSAGE_DECISION_START:
-                    // 타이머 초기화 기능
                     cnt = 0;
                     decisionTimer = true;
                     this.removeMessages(MESSAGE_DECISION_REPEAT);
                     this.sendEmptyMessage(MESSAGE_DECISION_REPEAT);
                     break;
                 case MESSAGE_DECISION_REPEAT:
-                    // 타이머 반복 기능
                     if (cnt < 120) {
                         cnt++;
                         this.sendEmptyMessageDelayed(MESSAGE_DECISION_REPEAT, 1000);
@@ -355,7 +350,6 @@ public class UARTLoopbackActivity extends Activity {
                     }
                     break;
                 case MESSAGE_DECISION_STOP:
-                    // 타이머 종료 기능
                     decisionTimer = false;
                     decisionMessage = "null";
                     this.removeMessages(MESSAGE_DECISION_REPEAT);
@@ -404,7 +398,7 @@ public class UARTLoopbackActivity extends Activity {
                 temp_cnt++;
             }
         }
-        if (temp_cnt > 4) {
+        if (temp_cnt > 2) {
             emergencyPredictAndroid("Abnormal Temperature");
         }
 
@@ -413,7 +407,7 @@ public class UARTLoopbackActivity extends Activity {
                 bio_cnt++;
             }
         }
-        if (bio_cnt > 4) {
+        if (bio_cnt > 2) {
             emergencyPredictAndroid("Abnormal Heart Rate");
         }
 
@@ -422,7 +416,7 @@ public class UARTLoopbackActivity extends Activity {
                 fire_cnt++;
             }
         }
-        if (fire_cnt > 4) {
+        if (fire_cnt > 2) {
             emergencyPredictAndroid("Fire for 1 minute");
         }
     }
@@ -572,7 +566,7 @@ public class UARTLoopbackActivity extends Activity {
                     JSONObject jsonObject = new JSONObject(response.body().string());
                     if (!jsonObject.getString("result").equals("Normal")) {
                         // 배경 빨간색으로 변경, 결정 쓰레드 2분
-                        startDecision("Emergency_Server: " + jsonObject.getString("result"));
+                        startDecision("Emergency_Server");
                     }
                 } catch (JSONException e) {
                     Sentry.captureException(e);
