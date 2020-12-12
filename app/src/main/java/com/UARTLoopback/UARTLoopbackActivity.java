@@ -8,6 +8,7 @@ import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.os.Trace;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -16,6 +17,7 @@ import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -35,7 +37,7 @@ import retrofit2.Response;
 
 public class UARTLoopbackActivity extends Activity {
 
-    LinearLayout myBackground;
+    RelativeLayout myBackground;
 
     StringBuffer readSB = new StringBuffer();
 
@@ -51,6 +53,7 @@ public class UARTLoopbackActivity extends Activity {
     TextView textBio;
     TextView textTemp;
     TextView textHum;
+    TextView mTimeView;
 
     /* local variables */
     byte[] writeBuffer;
@@ -89,9 +92,30 @@ public class UARTLoopbackActivity extends Activity {
     InHouseHandler inHouseHandler;
     int inHouse = 0;
 
+    E119Handler e119Handler;
+    boolean e119Timer = false;
+
+    EmergencyBtnHandler emergencyBtnHandler;
+    boolean emergencyBtnTimer = false;
+
+    CancelHandler cancelHandler;
+    boolean cancelTimer = false;
+
     DecisionHandler decisionHandler;
     boolean decisionTimer = false;
     String decisionMessage = "null";
+
+    private static final int MESSAGE_119_START = 100;
+    private static final int MESSAGE_119_REPEAT = 101;
+    private static final int MESSAGE_119_STOP = 102;
+
+    private static final int MESSAGE_EMERGENCY_BTN_START = 100;
+    private static final int MESSAGE_EMERGENCY_BTN_REPEAT = 101;
+    private static final int MESSAGE_EMERGENCY_BTN_STOP = 102;
+
+    private static final int MESSAGE_CANCEL_START = 100;
+    private static final int MESSAGE_CANCEL_REPEAT = 101;
+    private static final int MESSAGE_CANCEL_STOP = 102;
 
     private static final int MESSAGE_IN_HOUSE_START = 100;
     private static final int MESSAGE_IN_HOUSE_REPEAT = 101;
@@ -105,8 +129,8 @@ public class UARTLoopbackActivity extends Activity {
     ArrayList<Integer> recentFire = new ArrayList<>(6);
     ArrayList<Integer> recentBio = new ArrayList<>(6);
 
-    private TextView mTimeView;
-
+    int[] fakeArr = {70, 70, 70, 70, 68, 75, 85, 101, 103, 105, 108};
+    int fakeIdx = 0;
     /**
      * Called when the activity is first created.
      */
@@ -122,6 +146,8 @@ public class UARTLoopbackActivity extends Activity {
         textBio = findViewById(R.id.textBio);
         textTemp = findViewById(R.id.textTemp);
         textHum = findViewById(R.id.textHum);
+        mTimeView = findViewById(R.id.time_view);
+        myBackground = findViewById(R.id.background);
 
         global_context = this;
 
@@ -159,8 +185,12 @@ public class UARTLoopbackActivity extends Activity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
         getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
 
+        mHandler.sendEmptyMessage(0);
+
         inHouseHandler = new InHouseHandler();
         decisionHandler = new DecisionHandler();
+        emergencyBtnHandler = new EmergencyBtnHandler();
+        cancelHandler = new CancelHandler();
 
         handlerThread = new handler_thread(handler);
         handlerThread.start();
@@ -317,7 +347,7 @@ public class UARTLoopbackActivity extends Activity {
                         this.sendEmptyMessageDelayed(MESSAGE_IN_HOUSE_REPEAT, 1000);
                     } else {
                         inHouse = 0;
-                        inHouseHandler.sendEmptyMessage(MESSAGE_IN_HOUSE_STOP);
+                        this.sendEmptyMessage(MESSAGE_IN_HOUSE_STOP);
                     }
                     break;
                 case MESSAGE_IN_HOUSE_STOP:
@@ -326,6 +356,92 @@ public class UARTLoopbackActivity extends Activity {
             }
         }
     }
+
+    private class E119Handler extends Handler {
+        int cnt;
+
+        @Override
+        public void handleMessage(Message msg) {
+            switch (msg.what) {
+                case MESSAGE_119_START:
+                    cnt = 0;
+                    e119Timer = true;
+                    this.removeMessages(MESSAGE_119_REPEAT);
+                    this.sendEmptyMessage(MESSAGE_119_REPEAT);
+                    break;
+                case MESSAGE_119_REPEAT:
+                    if (cnt < 40) {
+                        cnt++;
+                        this.sendEmptyMessageDelayed(MESSAGE_119_REPEAT, 1000);
+                    } else {
+                        this.sendEmptyMessage(MESSAGE_119_STOP);
+                    }
+                    break;
+                case MESSAGE_119_STOP:
+                    e119Timer = false;
+                    this.removeMessages(MESSAGE_119_REPEAT);
+                    break;
+            }
+        }
+    }
+
+
+    private class EmergencyBtnHandler extends Handler {
+        int cnt;
+
+        @Override
+        public void handleMessage(Message msg) {
+            switch (msg.what) {
+                case MESSAGE_EMERGENCY_BTN_START:
+                    cnt = 0;
+                    emergencyBtnTimer = true;
+                    this.removeMessages(MESSAGE_EMERGENCY_BTN_REPEAT);
+                    this.sendEmptyMessage(MESSAGE_EMERGENCY_BTN_REPEAT);
+                    break;
+                case MESSAGE_EMERGENCY_BTN_REPEAT:
+                    if (cnt < 40) {
+                        cnt++;
+                        this.sendEmptyMessageDelayed(MESSAGE_EMERGENCY_BTN_REPEAT, 1000);
+                    } else {
+                        this.sendEmptyMessage(MESSAGE_EMERGENCY_BTN_STOP);
+                    }
+                    break;
+                case MESSAGE_EMERGENCY_BTN_STOP:
+                    emergencyBtnTimer = false;
+                    this.removeMessages(MESSAGE_EMERGENCY_BTN_REPEAT);
+                    break;
+            }
+        }
+    }
+
+    private class CancelHandler extends Handler {
+        int cnt;
+
+        @Override
+        public void handleMessage(Message msg) {
+            switch (msg.what) {
+                case MESSAGE_CANCEL_START:
+                    cnt = 0;
+                    cancelTimer = true;
+                    this.removeMessages(MESSAGE_CANCEL_REPEAT);
+                    this.sendEmptyMessage(MESSAGE_CANCEL_REPEAT);
+                    break;
+                case MESSAGE_CANCEL_REPEAT:
+                    if (cnt < 40) {
+                        cnt++;
+                        this.sendEmptyMessageDelayed(MESSAGE_CANCEL_REPEAT, 1000);
+                    } else {
+                        this.sendEmptyMessage(MESSAGE_CANCEL_STOP);
+                    }
+                    break;
+                case MESSAGE_CANCEL_STOP:
+                    cancelTimer = false;
+                    this.removeMessages(MESSAGE_CANCEL_REPEAT);
+                    break;
+            }
+        }
+    }
+
 
     /* 취소 버튼 확인해서 결정 */
     private class DecisionHandler extends Handler {
@@ -346,7 +462,7 @@ public class UARTLoopbackActivity extends Activity {
                         this.sendEmptyMessageDelayed(MESSAGE_DECISION_REPEAT, 1000);
                     } else {
                         emergencyDecision(decisionMessage);
-                        inHouseHandler.sendEmptyMessage(MESSAGE_DECISION_STOP);
+                        this.sendEmptyMessage(MESSAGE_DECISION_STOP);
                     }
                     break;
                 case MESSAGE_DECISION_STOP:
@@ -357,6 +473,7 @@ public class UARTLoopbackActivity extends Activity {
             }
         }
     }
+
 
     private void startDecision(String description) {
         if (false == decisionTimer) {
@@ -482,6 +599,13 @@ public class UARTLoopbackActivity extends Activity {
                         inHouseHandler.sendEmptyMessage(MESSAGE_IN_HOUSE_STOP);
                     }
 
+                    /* test bio */
+                    if (fakeIdx == fakeArr.length) {
+                        fakeIdx = 0;
+                    }
+                    bio = fakeArr[fakeIdx];
+                    fakeIdx++;
+
                     emergencyPredictServer();
                 }
             } else if (tmpArr.length >= 10 && tmpArr.length <= 12 && tmpArr[0].equals("33")
@@ -493,13 +617,20 @@ public class UARTLoopbackActivity extends Activity {
                 /* Key Event */
                 if (s_len.equals("0008") && s_cmd.equals("601010")) {
                     /* 119 통화 연결 */
-                    toastMessage = "119";
+                    if (false == e119Timer) {
+                        toastMessage = "119";
+                        e119Handler.sendEmptyMessage(MESSAGE_119_START);
+                    }
                 } else if (s_len.equals("0008") && s_cmd.equals("601050")) {
                     /* 보호자 통화 연결 */
                     toastMessage = "Carer";
                 } else if (s_len.equals("0008") && s_cmd.equals("611020")) {
                     /* 취소 버튼 */
-                    toastMessage = "Cancel";
+                    if (false == cancelTimer) {
+                        toastMessage = "Cancel";
+                        cancelHandler.sendEmptyMessage(MESSAGE_CANCEL_START);
+                        myBackground.setBackgroundColor(Color.parseColor("#EFEFEF"));
+                    }
                     stopDecision();
                 } else if (s_len.equals("0008") && s_cmd.equals("601030")) {
                     /* 생활복지사 통화 연결 */
@@ -512,26 +643,33 @@ public class UARTLoopbackActivity extends Activity {
                 } else if (s_len.equals("000a") && s_cmd.equals("674a01")) {
                     /* Door */
                     toastMessage = "Door";
-
                     inHouseHandler.sendEmptyMessage(MESSAGE_IN_HOUSE_START);
                 } else if (s_len.equals("0008") && s_cmd.equals("601101")) {
                     /* RF_btn - Emergency */
-                    toastMessage = "RF_btn - Emergency";
-
-                    emergencyPredictAndroid("RF_btn - Emergency");
-                    startDecision("RF_btn - Emergency");
+                    if (false == emergencyBtnTimer) {
+                        toastMessage = "RF_btn - Emergency";
+                        emergencyBtnHandler.sendEmptyMessage(MESSAGE_EMERGENCY_BTN_START);
+                        myBackground.setBackgroundColor(Color.RED);
+                        emergencyPredictAndroid("RF_btn - Emergency");
+                        startDecision("RF_btn - Emergency");
+                    }
                 } else if (s_len.equals("0008") && s_cmd.equals("611101")) {
                     /* RF_btn - Cancel */
-                    toastMessage = "RF_btn - Cancel";
-
-                    stopDecision();
+                    if (false == cancelTimer) {
+                        toastMessage = "RF_btn - Cancel";
+                        cancelHandler.sendEmptyMessage(MESSAGE_CANCEL_START);
+                        myBackground.setBackgroundColor(Color.parseColor("#EFEFEF"));
+                        stopDecision();
+                    }
                 } else if (s_len.equals("0008") && s_cmd.equals("604701")) {
                     /* Fire */
                     toastMessage = "Fire";
-
                     emergencyPredictAndroid("Fire");
                 }
-                Toast.makeText(global_context, toastMessage, Toast.LENGTH_SHORT).show();
+                
+                if (false == toastMessage.equals("null")) {
+                    Toast.makeText(global_context, toastMessage, Toast.LENGTH_SHORT).show();
+                }
             }
         } catch (Exception e) {
             Sentry.captureException(e);
@@ -560,12 +698,11 @@ public class UARTLoopbackActivity extends Activity {
         call.enqueue(new Callback<ResponseBody>() {
             @Override
             public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
-                String data = "temp: " + temperature + " hum: " + humidity + " bio: " + bio;
                 try {
-                    Toast.makeText(global_context, response.body().string(), Toast.LENGTH_SHORT).show();
                     JSONObject jsonObject = new JSONObject(response.body().string());
                     if (!jsonObject.getString("result").equals("Normal")) {
                         // 배경 빨간색으로 변경, 결정 쓰레드 2분
+                        myBackground.setBackgroundColor(Color.RED);
                         startDecision("Emergency_Server");
                     }
                 } catch (JSONException e) {
@@ -588,13 +725,15 @@ public class UARTLoopbackActivity extends Activity {
         SimpleDateFormat mFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
 
         String etTime = mFormat.format(date);
-        String etDecision = "Emergency_Android: " + information;
+        String etDecision = "Emergency: " + information;
         String etMac = gateway;
 
         Call<ResponseBody> call = MyClient.getInstance().getMyApi().predictAndroid(etTime, etDecision, etMac);
         call.enqueue(new Callback<ResponseBody>() {
             @Override
             public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
+                myBackground.setBackgroundColor(Color.RED);
+                startDecision(information);
             }
 
             @Override
@@ -610,7 +749,7 @@ public class UARTLoopbackActivity extends Activity {
         SimpleDateFormat mFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
 
         String etTime = mFormat.format(date);
-        String etDecision = "Emergency_Decision" + description;
+        String etDecision = "Emergency_Decision: " + description;
         String etMac = gateway;
 
         Call<ResponseBody> call = MyClient.getInstance().getMyApi().decision(etTime, etDecision, etMac);
@@ -628,14 +767,11 @@ public class UARTLoopbackActivity extends Activity {
 
     Handler mHandler = new Handler() {
         public void handleMessage(Message msg) {
-
             long now = System.currentTimeMillis();
             Date date = new Date(now);
-            SimpleDateFormat mFormatTime = new SimpleDateFormat("yyyy-MM-dd\na h:mm:ss");
+            SimpleDateFormat mFormatTime = new SimpleDateFormat("yyyy-MM-dd\na h:mm");
             String formatTime = mFormatTime.format(date);
             mTimeView.setText(String.format(formatTime));
-
-            // 메세지를 처리하고 또다시 핸들러에 메세지 전달 (1000ms 지연)
             mHandler.sendEmptyMessageDelayed(0, 1000);
         }
     };

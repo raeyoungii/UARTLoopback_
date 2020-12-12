@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/background"
     android:layout_width="fill_parent"
     android:layout_height="fill_parent"
     android:background="#EFEFEF">
@@ -10,7 +11,22 @@
         android:layout_height="wrap_content"
         android:layout_alignParentStart="true"
         android:layout_alignParentTop="true"
-        android:src="@drawable/background_img2" />
+        android:src="@drawable/background_img" />
+
+    <TextView
+        android:id="@+id/time_view"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentStart="true"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentBottom="true"
+        android:layout_marginStart="92dp"
+        android:layout_marginLeft="92dp"
+        android:layout_marginBottom="280dp"
+        android:gravity="center"
+        android:text="yyyy-MM-dd\na h:mm"
+        android:textColor="#000000"
+        android:textSize="30sp" />
 
     <TextView
         android:id="@+id/textBio"
@@ -19,28 +35,28 @@
         android:layout_alignParentStart="true"
         android:layout_alignParentLeft="true"
         android:layout_alignParentBottom="true"
-        android:layout_marginStart="240dp"
-        android:layout_marginLeft="240dp"
-        android:layout_marginBottom="145dp"
+        android:layout_marginStart="312dp"
+        android:layout_marginLeft="312dp"
+        android:layout_marginBottom="192dp"
         android:gravity="center"
         android:text="70"
         android:textColor="#000000"
-        android:textSize="12sp" />
+        android:textSize="30sp" />
 
     <TextView
         android:id="@+id/textTemp"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_alignParentTop="true"
-        android:layout_alignParentEnd="true"
-        android:layout_alignParentRight="true"
-        android:layout_marginTop="160dp"
-        android:layout_marginEnd="304dp"
-        android:layout_marginRight="304dp"
+        android:layout_alignParentStart="true"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentBottom="true"
+        android:layout_marginStart="477dp"
+        android:layout_marginLeft="477dp"
+        android:layout_marginBottom="300dp"
         android:gravity="center"
         android:text="28"
         android:textColor="#000000"
-        android:textSize="12sp" />
+        android:textSize="30sp" />
 
     <TextView
         android:id="@+id/textHum"
@@ -48,14 +64,14 @@
         android:layout_height="wrap_content"
         android:layout_alignParentStart="true"
         android:layout_alignParentLeft="true"
-        android:layout_alignParentTop="true"
-        android:layout_marginStart="439dp"
-        android:layout_marginLeft="439dp"
-        android:layout_marginTop="245dp"
+        android:layout_alignParentBottom="true"
+        android:layout_marginStart="643dp"
+        android:layout_marginLeft="643dp"
+        android:layout_marginBottom="171dp"
         android:gravity="center"
         android:text="18"
         android:textColor="#000000"
-        android:textSize="12sp" />
+        android:textSize="30sp" />
 
     <Button
         android:id="@+id/configButton"
