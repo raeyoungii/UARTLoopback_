@@ -16,6 +16,7 @@ import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
@@ -37,8 +38,6 @@ import retrofit2.Response;
 
 public class UARTLoopbackActivity extends Activity {
 
-    RelativeLayout myBackground;
-
     StringBuffer readSB = new StringBuffer();
 
     /* thread to read the data */
@@ -48,8 +47,11 @@ public class UARTLoopbackActivity extends Activity {
     public FT311UARTInterface uartInterface;
 
     /* graphical objects */
+    RelativeLayout myBackground;
     EditText readText;
+    ImageView myImageView;
     Button configBtn;
+    Button pillsBtn;
     TextView textBio;
     TextView textTemp;
     TextView textHum;
@@ -72,6 +74,8 @@ public class UARTLoopbackActivity extends Activity {
     public boolean bConfiged = false;
     public SharedPreferences sharePrefSettings;
     public String act_string;
+
+    boolean bPills = false;
 
     /* sensor Data */
     String gateway = "null";
@@ -101,6 +105,12 @@ public class UARTLoopbackActivity extends Activity {
     CancelHandler cancelHandler;
     boolean cancelTimer = false;
 
+    CarerHandler carerHandler;
+    boolean carerTimer = false;
+
+    LWAHandler lwaHandler;
+    boolean lwaTimer = false;
+
     DecisionHandler decisionHandler;
     boolean decisionTimer = false;
     String decisionMessage = "null";
@@ -116,6 +126,14 @@ public class UARTLoopbackActivity extends Activity {
     private static final int MESSAGE_CANCEL_START = 100;
     private static final int MESSAGE_CANCEL_REPEAT = 101;
     private static final int MESSAGE_CANCEL_STOP = 102;
+
+    private static final int MESSAGE_CARER_START = 100;
+    private static final int MESSAGE_CARER_REPEAT = 101;
+    private static final int MESSAGE_CARER_STOP = 102;
+
+    private static final int MESSAGE_LWA_START = 100;
+    private static final int MESSAGE_LWA_REPEAT = 101;
+    private static final int MESSAGE_LWA_STOP = 102;
 
     private static final int MESSAGE_IN_HOUSE_START = 100;
     private static final int MESSAGE_IN_HOUSE_REPEAT = 101;
@@ -142,7 +160,9 @@ public class UARTLoopbackActivity extends Activity {
         sharePrefSettings = getSharedPreferences("UARTLBPref", 0);
         //cleanPreference();
         /* create editable text objects */
+        myImageView = findViewById(R.id.myImageView);
         configBtn = findViewById(R.id.configButton);
+        pillsBtn = findViewById(R.id.pillsButton);
         textBio = findViewById(R.id.textBio);
         textTemp = findViewById(R.id.textTemp);
         textHum = findViewById(R.id.textHum);
@@ -189,8 +209,11 @@ public class UARTLoopbackActivity extends Activity {
 
         inHouseHandler = new InHouseHandler();
         decisionHandler = new DecisionHandler();
+        e119Handler = new E119Handler();
         emergencyBtnHandler = new EmergencyBtnHandler();
         cancelHandler = new CancelHandler();
+        carerHandler = new CarerHandler();
+        lwaHandler = new LWAHandler();
 
         handlerThread = new handler_thread(handler);
         handlerThread.start();
@@ -210,6 +233,19 @@ public class UARTLoopbackActivity extends Activity {
                 }
             }
         });
+
+        pillsBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (bPills) {
+                    myImageView.setImageDrawable(getResources().getDrawable(R.drawable.background_img));
+                } else {
+                    myImageView.setImageDrawable(getResources().getDrawable(R.drawable.background_img2));
+                }
+                bPills = !bPills;
+            }
+        });
+
     }
 
     protected void cleanPreference() {
@@ -442,6 +478,61 @@ public class UARTLoopbackActivity extends Activity {
         }
     }
 
+    private class CarerHandler extends Handler {
+        int cnt;
+
+        @Override
+        public void handleMessage(Message msg) {
+            switch (msg.what) {
+                case MESSAGE_CARER_START:
+                    cnt = 0;
+                    carerTimer = true;
+                    this.removeMessages(MESSAGE_CARER_REPEAT);
+                    this.sendEmptyMessage(MESSAGE_CARER_REPEAT);
+                    break;
+                case MESSAGE_CARER_REPEAT:
+                    if (cnt < 40) {
+                        cnt++;
+                        this.sendEmptyMessageDelayed(MESSAGE_CARER_REPEAT, 1000);
+                    } else {
+                        this.sendEmptyMessage(MESSAGE_CARER_STOP);
+                    }
+                    break;
+                case MESSAGE_CARER_STOP:
+                    carerTimer = false;
+                    this.removeMessages(MESSAGE_CARER_REPEAT);
+                    break;
+            }
+        }
+    }
+
+    private class LWAHandler extends Handler {
+        int cnt;
+
+        @Override
+        public void handleMessage(Message msg) {
+            switch (msg.what) {
+                case MESSAGE_LWA_START:
+                    cnt = 0;
+                    lwaTimer = true;
+                    this.removeMessages(MESSAGE_LWA_REPEAT);
+                    this.sendEmptyMessage(MESSAGE_LWA_REPEAT);
+                    break;
+                case MESSAGE_LWA_REPEAT:
+                    if (cnt < 40) {
+                        cnt++;
+                        this.sendEmptyMessageDelayed(MESSAGE_LWA_REPEAT, 1000);
+                    } else {
+                        this.sendEmptyMessage(MESSAGE_LWA_STOP);
+                    }
+                    break;
+                case MESSAGE_LWA_STOP:
+                    lwaTimer = false;
+                    this.removeMessages(MESSAGE_LWA_REPEAT);
+                    break;
+            }
+        }
+    }
 
     /* 취소 버튼 확인해서 결정 */
     private class DecisionHandler extends Handler {
@@ -585,10 +676,6 @@ public class UARTLoopbackActivity extends Activity {
                         }
                     }
 
-                    textBio.setText(Integer.toString(bio));
-                    textTemp.setText(Integer.toString(temperature));
-                    textHum.setText(Integer.toString(humidity));
-
                     /* emergency for temp, bio, fire */
                     recentArrayAdd(temperature, bio, fire);
                     recentDataPredict();
@@ -600,11 +687,16 @@ public class UARTLoopbackActivity extends Activity {
                     }
 
                     /* test bio */
-                    if (fakeIdx == fakeArr.length) {
-                        fakeIdx = 0;
-                    }
-                    bio = fakeArr[fakeIdx];
-                    fakeIdx++;
+//                    if (fakeIdx == fakeArr.length) {
+//                        fakeIdx = 0;
+//                    }
+//                    bio = fakeArr[fakeIdx];
+//                    fakeIdx++;
+
+                    /* set textView */
+                    textBio.setText(Integer.toString(bio));
+                    textTemp.setText(Integer.toString(temperature));
+                    textHum.setText(Integer.toString(humidity));
 
                     emergencyPredictServer();
                 }
@@ -623,18 +715,25 @@ public class UARTLoopbackActivity extends Activity {
                     }
                 } else if (s_len.equals("0008") && s_cmd.equals("601050")) {
                     /* 보호자 통화 연결 */
-                    toastMessage = "Carer";
+                    if (false == carerTimer) {
+                        toastMessage = "Carer";
+                        carerHandler.sendEmptyMessage(MESSAGE_CARER_START);
+                    }
                 } else if (s_len.equals("0008") && s_cmd.equals("611020")) {
                     /* 취소 버튼 */
                     if (false == cancelTimer) {
                         toastMessage = "Cancel";
                         cancelHandler.sendEmptyMessage(MESSAGE_CANCEL_START);
                         myBackground.setBackgroundColor(Color.parseColor("#EFEFEF"));
+                        stopDecision();
                     }
                     stopDecision();
                 } else if (s_len.equals("0008") && s_cmd.equals("601030")) {
                     /* 생활복지사 통화 연결 */
-                    toastMessage = "LWA";
+                    if (false == lwaTimer) {
+                        toastMessage = "LWA";
+                        lwaHandler.sendEmptyMessage(MESSAGE_LWA_START);
+                    }
                 }
                 /* Zigbee Sensor Event */
                 else if (s_len.equals("000a") && s_cmd.equals("674401")) {
@@ -651,7 +750,6 @@ public class UARTLoopbackActivity extends Activity {
                         emergencyBtnHandler.sendEmptyMessage(MESSAGE_EMERGENCY_BTN_START);
                         myBackground.setBackgroundColor(Color.RED);
                         emergencyPredictAndroid("RF_btn - Emergency");
-                        startDecision("RF_btn - Emergency");
                     }
                 } else if (s_len.equals("0008") && s_cmd.equals("611101")) {
                     /* RF_btn - Cancel */
