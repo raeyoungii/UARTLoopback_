@@ -99,6 +99,9 @@ public class UARTLoopbackActivity extends Activity {
     E119Handler e119Handler;
     boolean e119Timer = false;
 
+    FireHandler fireHandler;
+    boolean fireTimer = false;
+
     EmergencyBtnHandler emergencyBtnHandler;
     boolean emergencyBtnTimer = false;
 
@@ -118,6 +121,10 @@ public class UARTLoopbackActivity extends Activity {
     private static final int MESSAGE_119_START = 100;
     private static final int MESSAGE_119_REPEAT = 101;
     private static final int MESSAGE_119_STOP = 102;
+
+    private static final int MESSAGE_FIRE_START = 100;
+    private static final int MESSAGE_FIRE_REPEAT = 101;
+    private static final int MESSAGE_FIRE_STOP = 102;
 
     private static final int MESSAGE_EMERGENCY_BTN_START = 100;
     private static final int MESSAGE_EMERGENCY_BTN_REPEAT = 101;
@@ -147,8 +154,6 @@ public class UARTLoopbackActivity extends Activity {
     ArrayList<Integer> recentFire = new ArrayList<>(6);
     ArrayList<Integer> recentBio = new ArrayList<>(6);
 
-    int[] fakeArr = {70, 70, 70, 70, 68, 75, 85, 101, 103, 105, 108};
-    int fakeIdx = 0;
     /**
      * Called when the activity is first created.
      */
@@ -421,6 +426,33 @@ public class UARTLoopbackActivity extends Activity {
         }
     }
 
+    private class FireHandler extends Handler {
+        int cnt;
+
+        @Override
+        public void handleMessage(Message msg) {
+            switch (msg.what) {
+                case MESSAGE_FIRE_START:
+                    cnt = 0;
+                    fireTimer = true;
+                    this.removeMessages(MESSAGE_FIRE_REPEAT);
+                    this.sendEmptyMessage(MESSAGE_FIRE_REPEAT);
+                    break;
+                case MESSAGE_FIRE_REPEAT:
+                    if (cnt < 40) {
+                        cnt++;
+                        this.sendEmptyMessageDelayed(MESSAGE_FIRE_REPEAT, 1000);
+                    } else {
+                        this.sendEmptyMessage(MESSAGE_FIRE_STOP);
+                    }
+                    break;
+                case MESSAGE_119_STOP:
+                    fireTimer = false;
+                    this.removeMessages(MESSAGE_FIRE_REPEAT);
+                    break;
+            }
+        }
+    }
 
     private class EmergencyBtnHandler extends Handler {
         int cnt;
@@ -686,13 +718,6 @@ public class UARTLoopbackActivity extends Activity {
                         inHouseHandler.sendEmptyMessage(MESSAGE_IN_HOUSE_STOP);
                     }
 
-                    /* test bio */
-//                    if (fakeIdx == fakeArr.length) {
-//                        fakeIdx = 0;
-//                    }
-//                    bio = fakeArr[fakeIdx];
-//                    fakeIdx++;
-
                     /* set textView */
                     textBio.setText(Integer.toString(bio));
                     textTemp.setText(Integer.toString(temperature));
@@ -727,7 +752,6 @@ public class UARTLoopbackActivity extends Activity {
                         myBackground.setBackgroundColor(Color.parseColor("#EFEFEF"));
                         stopDecision();
                     }
-                    stopDecision();
                 } else if (s_len.equals("0008") && s_cmd.equals("601030")) {
                     /* 생활복지사 통화 연결 */
                     if (false == lwaTimer) {
@@ -761,8 +785,10 @@ public class UARTLoopbackActivity extends Activity {
                     }
                 } else if (s_len.equals("0008") && s_cmd.equals("604701")) {
                     /* Fire */
-                    toastMessage = "Fire";
-                    emergencyPredictAndroid("Fire");
+                    if (false == fireTimer) {
+                        toastMessage = "Fire";
+                        emergencyPredictAndroid("Fire");
+                    }
                 }
                 
                 if (false == toastMessage.equals("null")) {
